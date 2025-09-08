@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Bài 1: Thông tin và Dữ liệu – Tiết 1</title>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #f0f8ff; padding: 20px; }
+    h1 { color: #2c3e50; }
+    .question { margin-bottom: 20px; }
+    .answers label { display: block; margin-bottom: 5px; }
+    #result, .explanation { font-weight: bold; margin-top: 20px; font-size: 18px; }
+    .correct { color: #27ae60; }
+    .incorrect { color: #e74c3c; }
+    button { padding: 10px 20px; font-size: 16px; background-color: #3498db; color: white; border: none; cursor: pointer; margin-right: 10px; }
+    button:hover { background-color: #2980b9; }
+    input[type="text"] { padding: 5px; font-size: 16px; margin-bottom: 20px; width: 300px; }
+    #leaderboard { margin-top: 30px; background: #fff; padding: 10px; border: 1px solid #ccc; }
+    #leaderboard h2 { margin-bottom: 10px; }
+    #leaderboard ul { list-style: none; padding-left: 0; }
+    #leaderboard li { margin-bottom: 5px; }
+  </style>
+</head>
+<body>
+  <h1>📘 Bài 1: Thông tin và Dữ liệu – Tiết 1</h1>
+
+  <label>Nhập tên học sinh: <input type="text" id="studentName" placeholder="Ví dụ: Minh"></label>
+  <div id="quizContainer"></div>
+  <button onclick="submitQuiz()">Nộp bài</button>
+  <button onclick="exportToExcel()">📥 Xuất bảng xếp hạng</button>
+
+  <div id="result"></div>
+  <div id="explanations"></div>
+
+  <div id="leaderboard">
+    <h2>📊 Bảng xếp hạng lớp</h2>
+    <ul id="rankingList"></ul>
+  </div>
+
+  <audio id="correctSound" src="https://www.soundjay.com/buttons/sounds/button-3.mp3" preload="auto"></audio>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+  <script>
+    const questions = [
+      {
+        text: "Dữ liệu là gì?",
+        options: {
+          a: "Thông tin đã qua xử lí.",
+          b: "Sự kiện, con số, kí hiệu thô.",
+          c: "Kết quả học tập.",
+          d: "Kiến thức con người tiếp nhận."
+        },
+        correct: "b",
+        explain: "✅ Dữ liệu là các con số, kí hiệu thô chưa được xử lý."
+      },
+      {
+        text: "Thông tin là gì?",
+        options: {
+          a: "Kí hiệu chưa có ý nghĩa.",
+          b: "Kiến thức rút ra từ dữ liệu.",
+          c: "Dãy số ngẫu nhiên.",
+          d: "Tập hợp dữ liệu."
+        },
+        correct: "b",
+        explain: "✅ Thông tin là kiến thức rút ra từ dữ liệu đã xử lý."
+      },
+      {
+        text: "36°C (nhiệt độ) là:",
+        options: {
+          a: "Thông tin.",
+          b: "Dữ liệu.",
+          c: "Vừa dữ liệu vừa thông tin.",
+          d: "Không phải dữ liệu."
+        },
+        correct: "b",
+        explain: "✅ 36°C là dữ liệu vì nó chưa được phân tích hay so sánh."
+      },
+      {
+        text: "“Nam cao hơn Minh” là:",
+        options: {
+          a: "Dữ liệu.",
+          b: "Thông tin.",
+          c: "Cả hai.",
+          d: "Không phải."
+        },
+        correct: "b",
+        explain: "✅ 'Nam cao hơn Minh' là thông tin vì nó mang ý nghĩa so sánh."
+      },
+      {
+        text: "Từ điểm 8, 9, 10 → kết luận “Nam học giỏi” là:",
+        options: {
+          a: "Dữ liệu.",
+          b: "Thông tin.",
+          c: "Dữ liệu thô.",
+          d: "Không xác định."
+        },
+        correct: "b",
+        explain: "✅ Từ điểm số rút ra kết luận là thông tin."
+      }
+    ];
+
+    function shuffle(array) {
+      return array.sort(() => Math.random() - 0.5);
+    }
+
+    function renderQuiz() {
+      const container = document.getElementById("quizContainer");
+      container.innerHTML = "";
+      const shuffledQuestions = shuffle([...questions]);
+
+      shuffledQuestions.forEach((q, index) => {
+        const qDiv = document.createElement("div");
+        qDiv.className = "question";
+        qDiv.innerHTML = `<h3>${index + 1}. ${q.text}</h3>`;
+        const keys = shuffle(Object.keys(q.options));
+        keys.forEach(k => {
+          const label = document.createElement("label");
+          label.innerHTML = `<input type="radio" name="q${index}" value="${k}"> ${k.toUpperCase()}. ${q.options[k]}`;
+          qDiv.appendChild(label);
+        });
+        container.appendChild(qDiv);
+      });
+
+      window.shuffledQuestions = shuffledQuestions;
+    }
+
+    function submitQuiz() {
+      const studentName = document.getElementById("studentName").value.trim();
+      if (!studentName) {
+        alert("Vui lòng nhập tên học sinh.");
+        return;
+      }
+
+      let score = 0;
+      let explanationHTML = "";
+
+      window.shuffledQuestions.forEach((q, index) => {
+        const selected = document.querySelector(`input[name="q${index}"]:checked`);
+        if (selected) {
+          if (selected.value === q.correct) {
+            score++;
+            document.getElementById("correctSound").play();
+            explanationHTML += `<div class="explanation correct">${q.explain}</div>`;
+          } else {
+            explanationHTML += `<div class="explanation incorrect">❌ Sai. ${q.explain}</div>`;
+          }
+        } else {
+          explanationHTML += `<div class="explanation incorrect">⚠️ Bạn chưa chọn câu ${index + 1}. ${q.explain}</div>`;
+        }
+      });
+
+      document.getElementById("result").innerText = `🎓 ${studentName}, bạn đã trả lời đúng ${score}/${window.shuffledQuestions.length} câu hỏi!`;
+      document.getElementById("explanations").innerHTML = explanationHTML;
+
+      if (score === window.shuffledQuestions.length) {
+        confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+      }
+
+      localStorage.setItem(studentName, score);
+      updateLeaderboard();
+    }
+
+    function updateLeaderboard() {
+      const rankingList = document.getElementById("rankingList");
+      rankingList.innerHTML = "";
+
+      const scores = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const name = localStorage.key(i);
+        const score = parseInt(localStorage.getItem(name));
+        scores.push({ name, score });
+      }
+
+      scores.sort((a, b) => b.score - a.score);
+      scores.forEach(entry => {
+        const li = document.createElement("li");
+        li.textContent = `${entry.name}: ${entry.score}/5 điểm`;
+        rankingList.appendChild(li);
+      });
+    }
+
+    function exportToExcel() {
+      const data = [["Tên học sinh", "Điểm"]];
+      for (let i = 0; i < localStorage.length; i++) {
+        const name = localStorage.key(i);
+        const score = localStorage.getItem(name);
+        data.push([name, score]);
+      }
+
+      const worksheet = XLSX.utils.aoa_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Bảng xếp hạng");
+
+      XLSX.writeFile(workbook, "bang_xep_hang.xlsx");
+    }
+
+    window.onload = () => {
+      renderQuiz();
+      updateLeaderboard();
+    };
+  </script>
+</body>
+</html>
